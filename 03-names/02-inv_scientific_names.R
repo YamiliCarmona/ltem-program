@@ -2,13 +2,19 @@ library(tidyverse)
 library(readxl)
 library(stringr)
 
+=======
+
+
 
 
 # Load data ---------------------------------------------------------------
 
 ## Load custom functions
 
+
+=======
 source("00-functions/03-02-inv_scientific_names.R")
+
 
 #Ltem from fish scientific name correction:
 source("03-names/01-fish_scientific_names.R")
@@ -19,6 +25,9 @@ inv_metadata <- read.csv ("data/inv_monitoring_species.csv")
 
 ### Apply filters for removing all species entries that contain "sp" or "spp" 
 ### Including Species with just genus or families
+
+### Filtering just Invertebrate data
+=======
 ##Filtering just Invertebrate data
 
 #PLoS
@@ -36,77 +45,120 @@ clean_data <- clean_data(ltem)
 
 sources <- c(worms = 9)
 
-##Then, we apply a taxsize function: gnr_resolve, for matching correct
-## spellings of Scientific Names, in three parts:
 
+#Peripherical List of Species (PLoS), with fish sci-names corrected
+
+
+clean_spp <- clean_spp(fish_validated, "inv")
+
+
+#Check possible misspellings in PLoS
+resolved_names <- resolve_names(clean_spp, "inv")
+
+#Merge with PLoS replacing sci-names, and generating flags
+clean_sp_list <- clean_validation(clean_spp, resolved_names, inv_metadata, "inv")
+
+=======
 names_resolved <- names(resolved_names)
 
-## We merge our resolved_names with our clean PLoS (clean_md)
 
+
+
+
+
+# WoRMS validation --------------------------------------------------------
+
+#Exploratory checkup of sci-names, in case manual corrections necessary 
+=======
 merge <- merge_clean_resolved (clean_md, resolved_names)
 
 # First Checkpoint --------------------------------------------------------
 
 
+wormsID <- check_worms(clean_sp_list)
+
 ## If any scientific is still unaccepted, we can manually check its status
 
+
+=======
 ## Scientific names' status: Must be executed individually
 
 spp_inv <- data.frame( IDSpecies= clean_md$Species, Species= stringr::str_replace(clean_md$Species," ", "+") )
 
 wormsID <- taxize:: get_wormsid(spp_inv$Species)
 
+
 #Console: If manual input is required, always select the species entry
 #with an Accepted Status
 
 
-## All the other species which are not valid, require manual correction.
-## You can do so by replacing the old scientific name string, with a new one:
 
+
+## All species that display INVALID status, require manual correction.
+## You can do so by replacing the old scientific name string, with a new one:
+## For example:
+clean_sp_list <- clean_sp_list %>%
+=======
 clean_md <- spp_inv %>%
+
 mutate(Species = str_replace_all(Species, "Hyotissa solida",
                                  "Hyotissa hyotis")) %>% 
   mutate(Species = str_replace_all(Species,
                                  "Echinaster tenuispina",
-                                 "Echinaster (Othilia) tenuispina")) %>% 
+                                 "Echinaster+(Othilia)+tenuispina")) %>% 
   mutate(Species = str_replace_all(Species,
                                    "Holothuria leucospilota",
-                                   "Holothuria (Mertensiothuria) leucospilota")) %>% 
+                                   "Holothuria+(Mertensiothuria)+leucospilota")) %>% 
   mutate(Species = str_replace_all(Species,
                                    "Mycale ramulosa",
-                                   "Mycale (Zygomycale) ramulosa")) %>% 
+                                   "Mycale+(Zygomycale)+ramulosa")) %>% 
   mutate(Species = str_replace_all(Species,
                                  "Thais planospira",
-                                 "Thais (Tribulus) planospira"))
+                                 "Thais+(Tribulus)+planospira"))
 
 
 # The replacements above may vary, always check for new invalid species
 
 ## Re execute this line, if all species are displayed in green, we can proceed
 
-wormsID <- taxize:: get_wormsid(clean_md$Species)
+wormsID <- check_worms(clean_sp_list)
 
 
 
+## If all species displayed a VALID status, we then retrieve updated sci-names
+## from WoRMS, and replace them in our PLoS
 
-# Validate scientific names with WoRMS IDs --------------------------------
-library(plyr)
-library(httr)
-library(worms)
 
-## For scientific names validation, we need the AphiaIDs from WoRMS servers
-## This IDs will help us check if a scientific neame is currently unaccepted,
-## and will give us the valid one
+inv_validated <- worms_format(wormsID, clean_spp, fish_validated)
 
+
+# LTEM database correction ------------------------------------------------
+
+# Correction of possible errors in IDSpecies
+ltem <- speciesid(ltem, inv_validated, "inv")
+
+# Correction of species names mispellings
+ltem <- speciesnames(ltem, inv_validated, "inv")
+
+
+# Generate report for modified IDSpecies or Species (Optional)
+# test <-   flags(ltem)
+=======
 # First Step: We change the format of the WoRMS IDs generated in previous section
 wormsID <- worms_format (wormsID)
 
 
 ## We clean our worms_names df, and add our IDSpecies
 
-# Second Checkpoint -------------------------------------------------------
 
-## We merge our valid_names with our clean PLoS
+
+
+
+
+
+# END ---------------------------------------------------------------------
+
+
 
 #Manual check: Wrong Spellings
 #view(merge_md)
@@ -145,6 +197,6 @@ merge_valid <- mg_df (clean_df, clean_md)
 ltem_inv <- inv_ltem (names_inv, ltem)
 
 
-# END ---------------------------------------------------------------------
+
 
 
